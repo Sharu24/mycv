@@ -4,8 +4,7 @@ GET /user/:userName
 PUT /user/:userName {password} | should validate with token
 PUT /user/deactivate {userName, email, password} | should validate with token , deactivate
 
-GET /user/verify/:token {email link}
-POST /user/verify/:token {isVerified, active}
+GET /user/verify/:token {isVerified, active}
 
 POST /profile {profile}
 GET /profile/:userName

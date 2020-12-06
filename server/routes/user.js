@@ -1,7 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
+
+const config = require("../middlewares/config");
+const verifyEmail = require("../middlewares/verifyEmail");
+const authUser = require("../middlewares/authUser");
 
 const { body, check, validationResult } = require("express-validator");
 const User = require("../models/User");
@@ -38,11 +41,14 @@ router.post(
       const saltRounds = 10;
       userData.password = await bcrypt.hash(req.body.password, saltRounds);
 
-      await userData.save();
-      res.status(200).json({ Success: "Created User Record Successfully" });
+      //const token = await randomstring.generate(20);
+      userData.token = config.genToken(userData.userName);
 
-      // Generate a Token with jwt and randomString
-      // Send and email to the user with Email Verification Link
+      await userData.save();
+      res.status(200).json({ Success: userData.token });
+
+      const uriToken = `/user/verify/${userData.token}`;
+      verifyEmail({ email: userData.email, uriToken: uriToken });
     } catch (err) {
       console.error(err);
       res.status(500).json({ Error: "Unable to Process request" });
@@ -54,12 +60,12 @@ router.post(
  * @GET
  * Get a User's Basic Information
  */
-router.get("/:user", async (req, res) => {
+router.get("/:userName", [authUser], async (req, res) => {
   try {
-    if (!req.params.user) {
+    if (!req.params.userName) {
       return res.status(401).json({ Error: "User Name not Passed" });
     }
-    const userData = await User.find({ userName: req.params.user });
+    const userData = await User.find({ userName: req.params.userName });
     if (!userData.length) {
       return res.status(401).json({ Error: "User Name does not exists" });
     }
@@ -78,7 +84,7 @@ router.get("/:user", async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     let userData = await User.find({
-      $or: [{ userName: req.body.userName }, { email: req.body.email }]
+      $or: [{ userName: req.body.userName }, { email: req.body.userName }]
     });
     if (!userData.length) {
       return res.status(401).json({ Error: "User does not exists" });
@@ -91,9 +97,7 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ Error: "Invalid Credentials" });
     }
 
-    //generate token
-
-    res.status(200).json({ Success: "User logged In Successfully" });
+    res.status(200).json({ Success: config.genToken(userData[0].userName) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ Error: "Unable to Process request" });
@@ -104,7 +108,7 @@ router.post("/login", async (req, res) => {
  * @PUT
  * A secure link to update the password
  */
-router.put("/", async (req, res) => {
+router.put("/", [authUser], async (req, res) => {
   try {
     if (!req.body.password) {
       return res.status(401).json({ Error: "Password to Update is missing" });
@@ -131,26 +135,22 @@ router.put("/", async (req, res) => {
 
 /**
  * @GET
- * User
- * POST /user/verify/:token {isVerified, active}
- */
-router.post("/verify/:token", async (req, res) => {
-  try {
-    res.status(200).json({ Success: "User Verified Successfully" });
-  } catch (err) {
-    console.error(err);
-    res.status(200).json({ Error: "Unable to process the request" });
-  }
-});
-
-/**
- * @GET
  * A secure link to Verify the user
  * POST /user/verify/:token {isVerified, active}
  */
 router.get("/verify/:token", async (req, res) => {
   try {
     console.log(req.params.token);
+
+    const userData = await User.findOne({ token: req.params.token });
+    if (!userData) {
+      res.status(401).json({ Error: "Invalid Token" });
+    }
+    userData.isVerified = true;
+    userData.isActive = true;
+    userData.token = "";
+    userData.save();
+
     res.status(200).json({ Success: "User Verified Successfully" });
   } catch (err) {
     console.error(err);
@@ -163,10 +163,10 @@ router.get("/verify/:token", async (req, res) => {
  * Remove Self from the the System
  * check token
  * */
-router.put("/", async (req, res) => {
+router.put("/delete", [authUser], async (req, res) => {
   try {
     let userData = await User.find({
-      $or: [{ userName: req.body.userName }, { email: req.body.email }]
+      $or: [{ userName: req.body.userName }, { email: req.body.userName }]
     });
     if (!userData.length) {
       return res.status(401).json({ Error: "User does not exists" });
@@ -179,9 +179,9 @@ router.put("/", async (req, res) => {
       return res.status(401).json({ Error: "Invalid Credentials" });
     }
 
-    userData.isActive = false;
+    userData[0].isActive = false;
 
-    await userData.save();
+    await userData[0].save();
 
     res.status(200).json({ Success: "User Deactivated Successfully" });
   } catch (err) {

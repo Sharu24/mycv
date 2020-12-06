@@ -4,22 +4,24 @@ const { body, validationResult } = require("express-validator");
 
 const Profile = require("../models/Profile");
 const User = require("../models/User");
+
+const authUser = require("../middlewares/authUser");
 /**
  * POST /profile {profile}
  */
 router.post(
   "/",
   [
-    body("userName").notEmpty(),
-    body("firstName").notEmpty(),
-    body("bio").notEmpty(),
-    body("company").notEmpty(),
-    body("availForHire").notEmpty()
+    authUser,
+    [
+      body("userName").notEmpty(),
+      body("firstName").notEmpty(),
+      body("bio").notEmpty(),
+      body("company").notEmpty(),
+      body("availForHire").notEmpty()
+    ]
   ],
   async (req, res) => {
-    // invoke auth midduleware which attaches tokem with the request
-    // validate userName with the req.userToken.userName to authenticate the user
-    // also ensure token is valid
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(401).json(errors.array());
@@ -52,13 +54,14 @@ router.post(
 /**
  * GET /profile/:userName
  */
-router.get("/:user", async (req, res) => {
+router.get("/:userName", [authUser], async (req, res) => {
   try {
-    if (!req.params.user) {
+    if (!req.params.userName) {
       return res.status(401).json({ Error: "User Name not Passed" });
     }
-    const profileData = await Profile.findOne({ userName: req.params.user });
-    console.log(profileData, req.params.user);
+    const profileData = await Profile.findOne({
+      userName: req.params.userName
+    });
     if (!profileData) {
       return res.status(401).json({ Error: "No User Profile Found" });
     }
