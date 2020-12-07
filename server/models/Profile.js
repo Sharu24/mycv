@@ -17,10 +17,11 @@ const profileSchema = new Schema({
   websiteUrl: { type: String },
   availForHire: { type: Boolean, required: true },
   emojiUrl: { type: String },
-  social: { type: Schema.Types.Mixed },
-  // { facebook' : {handle: 'goncha24', recentPosts:''}, 'github' : {handle: 'goncha24', ...} }
+  social: [{ name: String, handle: String }],
+  //[{ name:'facebook',handle:'goncha24'},
+  //{ name:'github',handle:'goncha24'}]
   blogs: [],
-  projects: { type: Schema.Types.Mixed },
+  projects: [{ description: String, role: String, durationInMonths: Number }],
   achievements: [],
   lastUpdated: { type: Date, default: Date.now }
 });
